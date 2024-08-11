@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/atlokeshsk/snippetbox/internal/models"
+	"github.com/julienschmidt/httprouter"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -20,12 +21,10 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	app.render(w, http.StatusOK, "home.tmpl.html", data)
 }
 
-func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Displays the specific snippet"))
-}
-
 func (app *application) snippetViewById(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
+	paramters := httprouter.ParamsFromContext(r.Context())
+
+	id, err := strconv.Atoi(paramters.ByName("id"))
 	if err != nil || id < 1 {
 		app.notFound(w)
 		return
@@ -44,7 +43,7 @@ func (app *application) snippetViewById(w http.ResponseWriter, r *http.Request) 
 	app.render(w, http.StatusOK, "view.tmpl.html", data)
 }
 
-func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
+func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
 	title := "form handler"
 	content := "from create snippet handler"
 	expires := 365
@@ -55,4 +54,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+}
+func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Display the form for creating a new snippet..."))
 }
