@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/atlokeshsk/snippetbox/internal/models"
+	"github.com/atlokeshsk/snippetbox/internal/validator"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -43,11 +44,43 @@ func (app *application) snippetViewById(w http.ResponseWriter, r *http.Request) 
 	app.render(w, http.StatusOK, "view.tmpl.html", data)
 }
 
+type SnippetCreateFrom struct {
+	Title   string
+	Content string
+	Expires int
+	validator.Validator
+}
+
 func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
-	title := "form handler"
-	content := "from create snippet handler"
-	expires := 365
-	id, err := app.snippets.Insert(title, content, expires)
+	err := r.ParseForm()
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+	expires, err := strconv.Atoi(r.PostForm.Get("expires"))
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+	form := SnippetCreateFrom{
+		Title:   r.PostForm.Get("title"),
+		Content: r.PostForm.Get("content"),
+		Expires: expires,
+	}
+
+	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be empty")
+	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
+	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
+	form.CheckField(validator.PermittedInt(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, http.StatusUnprocessableEntity, "create.tmpl.html", data)
+		return
+	}
+
+	id, err := app.snippets.Insert(form.Title, form.Content, form.Expires)
 	if err != nil {
 		app.serverError(w, err)
 		return
@@ -55,6 +88,10 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 }
-func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Display the form for creating a new snippet..."))
+func (app *application) snippetCreateForm(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+	data.Form = SnippetCreateFrom{
+		Expires: 365,
+	}
+	app.render(w, http.StatusOK, "create.tmpl.html", data)
 }
